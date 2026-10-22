@@ -1,6 +1,9 @@
-<Project Sdk="Godot.NET.Sdk/4.7.0">
+<Project Sdk="Godot.NET.Sdk/4.7.2">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- O template Android do Godot 4.7 so suporta net9.0 (sem gradle) -->
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
+    <LangVersion Condition=" '$(GodotTargetPlatform)' == 'android' ">latest</LangVersion>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>SonicRemakeProject</RootNamespace>
   </PropertyGroup>

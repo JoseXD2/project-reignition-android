@@ -30,7 +30,9 @@ public partial class SaveManager : Node
 	/// <summary> Base data directory. </summary>
 	public static string DataDirectory { get; private set; }
 	/// <summary> The file that stores where the save directory is. </summary>
-	private static string SaveLocationFile => OS.GetExecutablePath().GetBaseDir() + "/saveLocation.txt";
+	private static string SaveLocationFile => OS.HasFeature("mobile")
+		? ProjectSettings.GlobalizePath("user://saveLocation.txt")
+		: OS.GetExecutablePath().GetBaseDir() + "/saveLocation.txt";
 
 	public override void _EnterTree()
 	{
@@ -77,6 +79,8 @@ public partial class SaveManager : Node
 				return targetDirectory;
 
 			// Fallback to executable path when directory is missing (only when a saveLocation file exists).
+			if (OS.HasFeature("mobile"))
+				return "user://";
 			return OS.GetExecutablePath().GetBaseDir() + "/";
 		}
 

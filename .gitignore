@@ -1,11 +1,11 @@
 # Godot 4+ specific ignores
 .godot/
 
-# Godot-specific ignores
+# Godot and c-sharp specific ignores
 .import/
 export.cfg
 export_presets.cfg
-
+build/android
 # Imported translations (automatically generated from CSV files)
 *.translation
 
@@ -28,3 +28,6 @@ mono_crash.*.json
 
 # Ignore FFMPEG .dll
 Project/addons/ffmpeg/win64/~libgdffmpeg.windows.template_debug.x86_64.dll
+# Build Android local
+build/
+*.bak
