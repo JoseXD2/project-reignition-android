@@ -63,6 +63,7 @@ NetworkSynchronizationServer="*uid://yrhqsbd5ubhs"
 NetworkIdentityServer="*uid://pc8gwg1lbusp"
 NetworkCommandServer="*uid://mkgjb8gdl0fp"
 RollbackLivenessServer="*uid://beo1554xbapmy"
+TouchControls="*res://interface/touch/TouchControls.cs"
 
 [debug]
 

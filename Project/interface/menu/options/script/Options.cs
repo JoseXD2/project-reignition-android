@@ -1158,9 +1158,51 @@ public partial class Options : Menu
 		else if (VerticalSelection == 2)
 			SaveManager.Config.areLangModsEnabled = !SaveManager.Config.areLangModsEnabled;
 		else if (VerticalSelection == 3)
-			OS.ShellOpen(ProjectSettings.GlobalizePath("user://mods/"));
+		{
+			if (SaveManager.IsAndroid)
+				OpenModsDialog();
+			else
+				OS.ShellOpen(ProjectSettings.GlobalizePath("user://mods/"));
+		}
 
 		return true;
+	}
+
+	/// <summary> Android has no file explorer to open, so show the native file picker on the mods folder instead. </summary>
+	private void OpenModsDialog()
+	{
+		SaveManager.EnsureModDirectories();
+		DisplayServer.FileDialogShow("Mods", SaveManager.ModDirectory, string.Empty, false,
+			DisplayServer.FileDialogMode.OpenFiles, ["*.zip, *.pck ; Mods"],
+			Callable.From<bool, string[], int>(OnModFilesSelected));
+	}
+
+	/// <summary> Copies mods picked from elsewhere (e.g. Downloads) into the mods folder. </summary>
+	private void OnModFilesSelected(bool status, string[] paths, int _)
+	{
+		if (!status)
+			return;
+
+		bool hasZip = false;
+		foreach (string path in paths)
+		{
+			string destination = SaveManager.ModDirectory + path.GetFile();
+			if (path == destination)
+				continue;
+
+			Error error = DirAccess.CopyAbsolute(path, destination);
+			if (error != Error.Ok)
+			{
+				GD.PrintErr($"Couldn't copy mod {path} to {destination} ({error})");
+				continue;
+			}
+
+			hasZip |= destination.GetExtension() == "zip";
+			GD.Print($"Copied mod {path} to {destination}");
+		}
+
+		if (hasZip)
+			ModManager.Instance.ExtractZipFiles(); // Mods are loaded on the next startup
 	}
 
 	private bool SlideMouseOption(int direction)
@@ -1377,23 +1419,7 @@ public partial class Options : Menu
 
 	private void ConfirmModsOption()
 	{
-		if (!DirAccess.DirExistsAbsolute(SaveManager.ModDirectory))
-			DirAccess.MakeDirRecursiveAbsolute(SaveManager.ModDirectory);
-
-		if (!DirAccess.DirExistsAbsolute(SaveManager.MusicModDirectory))
-			DirAccess.MakeDirRecursiveAbsolute(SaveManager.MusicModDirectory);
-
-		if (!DirAccess.DirExistsAbsolute(SaveManager.LevelsModDirectory))
-			DirAccess.MakeDirRecursiveAbsolute(SaveManager.LevelsModDirectory);
-
-		if (!DirAccess.DirExistsAbsolute(SaveManager.LangModDirectory))
-			DirAccess.MakeDirRecursiveAbsolute(SaveManager.LangModDirectory);
-
-		if (!DirAccess.DirExistsAbsolute(SaveManager.CharactersModDirectory))
-			DirAccess.MakeDirRecursiveAbsolute(SaveManager.CharactersModDirectory);
-
-		if (!DirAccess.DirExistsAbsolute(SaveManager.ExtrasModDirectory))
-			DirAccess.MakeDirRecursiveAbsolute(SaveManager.ExtrasModDirectory);
+		SaveManager.EnsureModDirectories();
 
 		SlideModsOption(1);
 		ConfirmSFX();

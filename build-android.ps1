@@ -1,8 +1,25 @@
+<#
+  build-android.ps1 - Gera um APK Android do Project Reignition (Godot 4.7 .NET)
 
+  Uso (no PowerShell, dentro da pasta do repo):
+      powershell -ExecutionPolicy Bypass -File .\build-android.ps1
+      powershell -ExecutionPolicy Bypass -File .\build-android.ps1 -Install       # gera e instala no celular via USB (adb)
+      powershell -ExecutionPolicy Bypass -File .\build-android.ps1 -InstallOnly   # so instala o APK ja gerado
+      powershell -ExecutionPolicy Bypass -File .\build-android.ps1 -SkipImport    # pula a importacao (builds seguintes)
+
+  O que ele faz (tudo isolado numa pasta de ferramentas, nao mexe no seu Godot/Java instalados):
+    1. Baixa Godot 4.7.2 .NET (modo self-contained) + export templates
+    2. Baixa .NET 10 SDK, JDK 17 e Android SDK (platform-tools, build-tools 36.1.0, android-36)
+    3. Gera um keystore de debug
+    4. Cria export_presets.cfg com um preset "Android" (arm64), incluindo o plugin FFmpeg
+    5. Importa o projeto (a primeira vez demora MUITO - sao ~4.4 GB de assets)
+    6. Exporta build\android\ProjectReignition.apk
+#>
 param(
     [string]$ToolsDir = "$env:USERPROFILE\godot-android-tools",
     [switch]$Install,
-    [switch]$SkipImport
+    [switch]$SkipImport,
+    [switch]$InstallOnly   # so instala o APK ja gerado, sem exportar de novo
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,10 +61,22 @@ function Download($url, $dest) {
 }
 
 function Unzip($zip, $dest) {
+    # Expand-Archive so aceita .zip
     if ($zip -notlike "*.zip") { $tmp = "$zip.zip"; Copy-Item $zip $tmp -Force; $zip = $tmp }
     Expand-Archive -Path $zip -DestinationPath $dest -Force
 }
 
+if ($InstallOnly) {
+    $adb = Join-Path $ToolsDir "android-sdk\platform-tools\adb.exe"
+    if (-not (Test-Path $ApkPath)) { throw "Nao achei $ApkPath. Rode o build primeiro." }
+    Step "Instalando no celular via adb (ative Depuracao USB no aparelho)"
+    & $adb devices
+    & $adb install -r "$ApkPath"
+    Write-Host "Para ver o log do jogo:  `"$adb`" logcat -s godot" -ForegroundColor Yellow
+    exit 0
+}
+
+# ---------------------------------------------------------------- Godot
 Step "Godot $GodotTag .NET"
 $GodotDir = Join-Path $ToolsDir $GodotName
 $GodotExe = Join-Path $GodotDir "${GodotName}_console.exe"
@@ -56,7 +85,7 @@ if (-not (Test-Path $GodotExe)) {
     Download "https://github.com/godotengine/godot-builds/releases/download/$GodotTag/$GodotName.zip" $zip
     Unzip $zip $ToolsDir
 }
-
+# modo self-contained: configuracoes e templates ficam em $GodotDir\editor_data
 New-Item -ItemType File -Force -Path (Join-Path $GodotDir "._sc_") | Out-Null
 $EditorData = Join-Path $GodotDir "editor_data"
 New-Item -ItemType Directory -Force -Path $EditorData | Out-Null
@@ -74,6 +103,7 @@ if (-not (Test-Path (Join-Path $TplDest "android_debug.apk"))) {
     Remove-Item $tmp -Recurse -Force
 }
 
+# ---------------------------------------------------------------- .NET 10
 Step ".NET 10 SDK"
 $DotnetDir = Join-Path $ToolsDir "dotnet"
 if (-not (Test-Path (Join-Path $DotnetDir "dotnet.exe"))) {
@@ -85,6 +115,7 @@ $env:DOTNET_ROOT = $DotnetDir
 $env:PATH = "$DotnetDir;$env:PATH"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 
+# ---------------------------------------------------------------- JDK 17
 Step "JDK 17 (Temurin)"
 $JdkDir = Join-Path $ToolsDir "jdk17"
 if (-not (Test-Path (Join-Path $JdkDir "bin\java.exe"))) {
@@ -100,6 +131,7 @@ if (-not (Test-Path (Join-Path $JdkDir "bin\java.exe"))) {
 $env:JAVA_HOME = $JdkDir
 $env:PATH = "$JdkDir\bin;$env:PATH"
 
+# ---------------------------------------------------------------- Android SDK
 Step "Android SDK"
 $SdkDir = Join-Path $ToolsDir "android-sdk"
 $SdkMgr = Join-Path $SdkDir "cmdline-tools\latest\bin\sdkmanager.bat"
@@ -121,6 +153,7 @@ if (-not (Test-Path (Join-Path $SdkDir "build-tools\$BuildTools"))) {
     & $SdkMgr --sdk_root="$SdkDir" "platform-tools" "build-tools;$BuildTools" "platforms;$Platform"
 }
 
+# ---------------------------------------------------------------- Keystore
 Step "Keystore de debug"
 $Keystore = Join-Path $ToolsDir "debug.keystore"
 if (-not (Test-Path $Keystore)) {
@@ -129,6 +162,7 @@ if (-not (Test-Path $Keystore)) {
         -dname "CN=Android Debug,O=Android,C=US" | Out-Null
 }
 
+# ---------------------------------------------------------------- Editor settings
 Step "Configurando o editor"
 function GdPath($p) { return ($p -replace '\\', '/') }
 $settingsFile = Join-Path $EditorData "editor_settings-$SettingsVer.tres"
@@ -145,9 +179,10 @@ export/android/debug_keystore_pass = "android"
 "@
     WriteNoBom $settingsFile $txt
 }
-
+# corrige arquivo gerado por versao antiga do script (com BOM)
 WriteNoBom $settingsFile ([System.IO.File]::ReadAllText($settingsFile).TrimStart([char]0xFEFF))
 
+# ---------------------------------------------------------------- Export preset
 Step "export_presets.cfg"
 $presets = Join-Path $ProjectDir "export_presets.cfg"
 if ((Test-Path $presets) -and -not (Select-String -Path $presets -Pattern 'platform="Android"' -Quiet)) {
@@ -199,29 +234,57 @@ screen/support_normal=true
 screen/support_large=true
 screen/support_xlarge=true
 permissions/internet=true
+permissions/manage_external_storage=true
 permissions/access_network_state=true
 "@
     WriteNoBom $presets $txt
 }
 
+# plugin de video (FFmpeg) fica incluido no APK; remove a exclusao de versoes antigas deste script
 $ptxt = [System.IO.File]::ReadAllText($presets).TrimStart([char]0xFEFF)
 $ptxt = $ptxt -replace 'exclude_filter="addons/ffmpeg/\*"', 'exclude_filter=""'
+if ($ptxt -notmatch 'manage_external_storage') {
+    # pasta de mods em /storage/emulated/0/ProjectReignition/mods precisa de "Acesso a todos os arquivos"
+    $ptxt = $ptxt -replace 'permissions/internet=true', "permissions/internet=true`npermissions/manage_external_storage=true"
+}
 WriteNoBom $presets $ptxt
 if (-not (Test-Path (Join-Path $ProjectDir "addons\ffmpeg\android"))) {
     Write-Warning "addons\ffmpeg\android ainda nao existe: o plugin vai junto, mas os videos nao tocam no Android ate portarmos as libs."
 }
 
+# ---------------------------------------------------------------- Import + Export
 if (-not $SkipImport) {
     Step "Importando assets (primeira vez pode levar 30-90 min, depende do PC)"
     & $GodotExe --headless --path "$ProjectDir" --import
     if ($LASTEXITCODE -ne 0) { Write-Warning "Import terminou com codigo $LASTEXITCODE (geralmente e so warning, continuando)" }
 }
 
+# Godot escreve erros no stderr; nao deixar o PowerShell abortar por isso
 $ErrorActionPreference = "Continue"
 
-Step "Exportando APK (log em build\android\export.log)"
+Step "Exportando APK (log em build\android\export.log e export-err.log)"
 if (Test-Path $ApkPath) { Remove-Item $ApkPath -Force }
-& $GodotExe --headless --path "$ProjectDir" --export-debug "Android" "$ApkPath" 2>&1 | Tee-Object -FilePath (Join-Path $OutDir "export.log")
+# O Godot as vezes trava ao fechar depois do export; por isso roda em segundo plano
+# e o script mata o processo quando o export terminar.
+$logOut = Join-Path $OutDir "export.log"
+$logErr = Join-Path $OutDir "export-err.log"
+$gargs  = "--headless --path `"$ProjectDir`" --export-debug Android `"$ApkPath`""
+$proc   = Start-Process -FilePath $GodotExe -ArgumentList $gargs -NoNewWindow -PassThru `
+            -RedirectStandardOutput $logOut -RedirectStandardError $logErr
+$shown = 0; $doneAt = $null
+while (-not $proc.HasExited) {
+    Start-Sleep -Seconds 2
+    $lines = @(Get-Content $logOut -ErrorAction SilentlyContinue)
+    if ($lines.Count -gt $shown) { $lines[$shown..($lines.Count-1)] | ForEach-Object { Write-Host $_ }; $shown = $lines.Count }
+    if (-not $doneAt -and ($lines -match 'DONE \].*export')) { $doneAt = Get-Date }
+    if ($doneAt -and ((Get-Date) - $doneAt).TotalSeconds -gt 20) {
+        Write-Host "   export concluido; fechando o Godot (ele trava ao sair)" -ForegroundColor DarkGray
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+        Get-Process adb -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        break
+    }
+}
+Get-Content $logErr -ErrorAction SilentlyContinue | Select-String -Pattern "ERROR|error CS" | Select-Object -Last 20 | ForEach-Object { Write-Host $_ -ForegroundColor DarkYellow }
 
 if (-not (Test-Path $ApkPath)) {
     Write-Host "`nO APK nao foi gerado. Mande o arquivo build\android\export.log" -ForegroundColor Red
@@ -231,6 +294,7 @@ $sizeMB = [math]::Round((Get-Item $ApkPath).Length / 1MB)
 Write-Host "`nAPK gerado: $ApkPath ($sizeMB MB)" -ForegroundColor Green
 if ($sizeMB -gt 4000) { Write-Warning "APK acima de ~4 GB: o Android pode recusar a instalacao." }
 
+# ---------------------------------------------------------------- Instalar (opcional)
 if ($Install) {
     Step "Instalando no celular via adb (ative Depuracao USB no aparelho)"
     $adb = Join-Path $SdkDir "platform-tools\adb.exe"

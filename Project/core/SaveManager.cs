@@ -21,7 +21,37 @@ public partial class SaveManager : Node
 	/// <summary> Directory for save files. </summary>
 	public static string SaveDirectory => DataDirectory + "saves/";
 	/// <summary> Directory for mod files. </summary>
-	public static string ModDirectory => DataDirectory + "mods/";
+	public static string ModDirectory => HasSharedStorageAccess ? SharedStorageModDirectory : DataDirectory + "mods/";
+
+	public static bool IsAndroid => OS.GetName() == "Android";
+	/// <summary> Android permission needed to read/write mods on shared storage. </summary>
+	public const string AllFilesPermission = "android.permission.MANAGE_EXTERNAL_STORAGE";
+	private static bool? sharedStorageGranted;
+	/// <summary> True on Android when "All files access" was granted, so mods can live on shared storage. </summary>
+	public static bool HasSharedStorageAccess
+	{
+		get
+		{
+			if (!IsAndroid)
+				return false;
+
+			sharedStorageGranted ??= System.Array.IndexOf(OS.GetGrantedPermissions(), AllFilesPermission) != -1;
+			return sharedStorageGranted.Value;
+		}
+	}
+	public static void RefreshSharedStorageAccess() => sharedStorageGranted = null;
+	/// <summary> Mods folder on Android shared storage (/storage/emulated/0/ProjectReignition/mods/). </summary>
+	public static string SharedStorageModDirectory => OS.GetSystemDir(OS.SystemDir.Documents).GetBaseDir() + "/ProjectReignition/mods/";
+
+	/// <summary> Creates the mod folder and its subfolders if they don't exist. </summary>
+	public static void EnsureModDirectories()
+	{
+		foreach (string dir in new[] { ModDirectory, MusicModDirectory, LevelsModDirectory, LangModDirectory, CharactersModDirectory, ExtrasModDirectory })
+		{
+			if (!DirAccess.DirExistsAbsolute(dir))
+				DirAccess.MakeDirRecursiveAbsolute(dir);
+		}
+	}
 	public static string CharactersModDirectory => ModDirectory + "characters/";
 	public static string MusicModDirectory => ModDirectory + "music/";
 	public static string LevelsModDirectory => ModDirectory + "levels/";

@@ -25,6 +25,28 @@ public partial class ModManager : Node
 	public override void _EnterTree()
 	{
 		Instance = this;
+
+		if (SaveManager.IsAndroid && !SaveManager.HasSharedStorageAccess)
+		{
+			// Ask for "All files access" so mods can be stored in /storage/emulated/0/ProjectReignition/mods/ - Lumi
+			GetTree().OnRequestPermissionsResult += OnRequestPermissionsResult;
+			OS.RequestPermission(SaveManager.AllFilesPermission);
+		}
+
+		SaveManager.EnsureModDirectories();
+		ExtractZipFiles();
+		SetUpMods();
+	}
+
+	private void OnRequestPermissionsResult(string permission, bool granted)
+	{
+		if (!granted || !permission.EndsWith("MANAGE_EXTERNAL_STORAGE"))
+			return;
+
+		GetTree().OnRequestPermissionsResult -= OnRequestPermissionsResult;
+		SaveManager.RefreshSharedStorageAccess();
+		SaveManager.EnsureModDirectories();
+		GD.Print($"Shared storage access granted, mods folder: {SaveManager.ModDirectory}");
 		ExtractZipFiles();
 		SetUpMods();
 	}
@@ -42,7 +64,7 @@ public partial class ModManager : Node
 	}
 
 	/// <summary> Extracts all zip files, then deletes the original zip file. </summary>
-	private void ExtractZipFiles()
+	public void ExtractZipFiles()
 	{
 		LoadZips(SaveManager.ModDirectory);
 
