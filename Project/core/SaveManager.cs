@@ -635,7 +635,34 @@ public partial class SaveManager : Node
 		if (Config.voiceLocale == null)
 			Config.voiceLocale = AutoDetectVoiceLocale();
 
+		ApplyMobileDefaults();
 		ApplyConfig();
+	}
+
+	private const string MobileDefaultsMarker = "user://mobile_defaults_applied";
+
+	/// <summary>
+	/// The default video settings target PCs. On mobile, switch to lighter settings once
+	/// (players can still raise them in the options menu afterwards).
+	/// </summary>
+	private static void ApplyMobileDefaults()
+	{
+		if (!OS.HasFeature("mobile") || FileAccess.FileExists(MobileDefaultsMarker))
+			return;
+
+		Config.renderScale = 75;
+		Config.resizeMode = RenderingServer.ViewportScaling3DMode.Bilinear;
+		Config.antiAliasing = 1; // FXAA
+		Config.softShadowQuality = QualitySetting.Low;
+		Config.reflectionQuality = QualitySetting.Low;
+		Config.postProcessingQuality = QualitySetting.Disabled; // SSAO/SSIL aren't supported by the mobile renderer anyway
+		Config.bloomMode = QualitySetting.Low;
+		Config.useVolumetricLighting = false;
+		Config.useMotionBlur = false;
+
+		SaveConfig();
+		FileAccess marker = FileAccess.Open(MobileDefaultsMarker, FileAccess.ModeFlags.Write);
+		marker?.Close();
 	}
 
 	/// <summary> Attempts to save config data to file. </summary>
