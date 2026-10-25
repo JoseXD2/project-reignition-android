@@ -30,6 +30,8 @@ run/max_fps=60
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/show_image=false
 config/icon="res://interface/boot/Icon.png"
+boot_splash/show_image.android=true
+boot_splash/image.android="res://interface/boot/android_loading.png"
 
 [audio]
 
@@ -694,6 +696,9 @@ anti_aliasing/quality/screen_space_aa=1
 mesh_lod/lod_change/threshold_pixels=0.5
 lights_and_shadows/positional_shadow/atlas_quadrant_2_subdiv=2
 lights_and_shadows/positional_shadow/atlas_quadrant_3_subdiv=2
+textures/default_filters/anisotropic_filtering_level.mobile=1
+mesh_lod/lod_change/threshold_pixels.mobile=2.0
+anti_aliasing/quality/screen_space_aa.mobile=0
 environment/screen_space_reflection/roughness_quality=0
 
 [shader_globals]

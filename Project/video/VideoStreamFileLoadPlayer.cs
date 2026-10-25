@@ -22,12 +22,29 @@ public partial class VideoStreamFileLoadPlayer : VideoStreamPlayer
 		if (string.IsNullOrEmpty(videoFilePath))
 			return;
 
-		if (!ResourceLoader.Exists(videoFilePath, "VideoStream"))
+		string path = ResolveVideoPath(videoFilePath);
+		if (path == null)
 		{
 			GD.PushWarning($"Couldn't load video file {videoFilePath}!");
 			return;
 		}
 
-		Stream = ResourceLoader.Load<VideoStream>(videoFilePath, "VideoStream");
+		Stream = ResourceLoader.Load<VideoStream>(path, "VideoStream");
+	}
+
+	public static string ResolveVideoPath(string path)
+	{
+		if (string.IsNullOrEmpty(path))
+			return null;
+
+		string ogvPath = path.GetBaseName() + ".ogv";
+		string[] candidates = OS.HasFeature("mobile") ? [ogvPath, path] : [path, ogvPath];
+		foreach (string candidate in candidates)
+		{
+			if (ResourceLoader.Exists(candidate, "VideoStream"))
+				return candidate;
+		}
+
+		return null;
 	}
 }

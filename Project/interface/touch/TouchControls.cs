@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Project.Core;
 using Project.Gameplay;
 
 namespace Project.Interface;
 
 public partial class TouchControls : CanvasLayer
 {
-	/// <summary> Joypad device id used for the virtual gamepad. </summary>
 	public const int VirtualDevice = 7;
 
 	private const string TexturePath = "res://interface/touch/";
@@ -16,7 +16,6 @@ public partial class TouchControls : CanvasLayer
 	private const float StickBaseSize = 340f;
 	private const float StickKnobSize = 170f;
 	private const float StickRadius = 115f;
-	/// <summary> Extra distance kept from the safe area edges. </summary>
 	private const float EdgePadding = 40f;
 	private const float DefaultOpacity = 0.75f;
 	private const float MinItemScale = 0.5f;
@@ -24,7 +23,6 @@ public partial class TouchControls : CanvasLayer
 
 	private enum Corner { TopLeft, TopRight, BottomLeft, BottomRight }
 
-	/// <summary> Something that can be moved/resized in the layout editor (a button, the stick or the whole d-pad). </summary>
 	private sealed class LayoutItem
 	{
 		public string Id;
@@ -34,7 +32,6 @@ public partial class TouchControls : CanvasLayer
 		public float HitRadius;
 		public readonly List<(Control Part, Vector2 Offset)> Parts = [];
 
-		/// <summary> Custom center as a ratio of the screen size, or null for the default position. </summary>
 		public Vector2? CustomCenter;
 		public float Scale = 1f;
 		public Vector2 Center;
@@ -71,7 +68,6 @@ public partial class TouchControls : CanvasLayer
 	private Vector2 lastStickValue;
 	private float StickScale => stickItem.Scale;
 
-	/// <summary> Safe area of the screen (notch, rounded corners, navigation bar) in viewport coordinates. </summary>
 	private Rect2 safeRect;
 
 	private Texture2D frameTexture;
@@ -85,11 +81,10 @@ public partial class TouchControls : CanvasLayer
 			return;
 		}
 
-		// Touches would otherwise also be sent as mouse clicks, and left click is mapped to jump.
 		Input.EmulateMouseFromTouch = false;
 
 		Layer = 100;
-		ProcessMode = ProcessModeEnum.Always; // Keep working while the game is paused
+		ProcessMode = ProcessModeEnum.Always;
 
 		frameTexture = GD.Load<Texture2D>(TexturePath + "touch_button.png");
 		framePressedTexture = GD.Load<Texture2D>(TexturePath + "touch_button_pressed.png");
@@ -123,7 +118,6 @@ public partial class TouchControls : CanvasLayer
 	}
 
 	#region Building
-	/// <summary> Analog stick and every button used while playing a stage. </summary>
 	private void BuildGameplayControls()
 	{
 		stickBase = MakeRect(GD.Load<Texture2D>(TexturePath + "touch_stick_base.png"));
@@ -139,25 +133,21 @@ public partial class TouchControls : CanvasLayer
 		stickItem = CreateItem("gameplay_stick", true, Corner.BottomLeft, new(StickBaseSize * 0.5f, -StickBaseSize * 0.5f), StickBaseSize * 0.5f);
 		stickItem.Parts.Add((stickBase, Vector2.Zero));
 
-		// Face buttons (diamond, bottom-right)
-		AddButton(true, "gameplay_a", "button/button_a.png", JoyButton.A, Corner.BottomRight, new(-230, -105), 170); // Jump
-		AddButton(true, "gameplay_b", "button/button_b.png", JoyButton.B, Corner.BottomRight, new(-85, -240), 140); // Action
-		AddButton(true, "gameplay_x", "button/button_x.png", JoyButton.X, Corner.BottomRight, new(-375, -240), 140); // Attack
-		AddButton(true, "gameplay_y", "button/button_y.png", JoyButton.Y, Corner.BottomRight, new(-230, -375), 140); // Light dash
+		AddButton(true, "gameplay_a", "button/button_a.png", JoyButton.A, Corner.BottomRight, new(-230, -105), 170);
+		AddButton(true, "gameplay_b", "button/button_b.png", JoyButton.B, Corner.BottomRight, new(-85, -240), 140);
+		AddButton(true, "gameplay_x", "button/button_x.png", JoyButton.X, Corner.BottomRight, new(-375, -240), 140);
+		AddButton(true, "gameplay_y", "button/button_y.png", JoyButton.Y, Corner.BottomRight, new(-230, -375), 140);
 
-		// Triggers
-		AddTrigger("gameplay_rt", "shoulder/shoulder_rt.png", JoyAxis.TriggerRight, Corner.BottomRight, new(-75, -425), 120); // Speed break
-		AddTrigger("gameplay_lt", "shoulder/shoulder_lt.png", JoyAxis.TriggerLeft, Corner.BottomRight, new(-385, -425), 120); // Time break
+		AddTrigger("gameplay_rt", "shoulder/shoulder_rt.png", JoyAxis.TriggerRight, Corner.BottomRight, new(-75, -425), 120);
+		AddTrigger("gameplay_lt", "shoulder/shoulder_lt.png", JoyAxis.TriggerLeft, Corner.BottomRight, new(-385, -425), 120);
 
-		// Above the stick
-		AddButton(true, "gameplay_lb", "shoulder/shoulder_lb.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(70, -470), 120); // Step left
-		AddButton(true, "gameplay_rb", "shoulder/shoulder_rb.png", JoyButton.RightShoulder, Corner.BottomLeft, new(310, -470), 120); // Step right
-		AddButton(true, "gameplay_ls", "button/button_ls.png", JoyButton.LeftStick, Corner.BottomLeft, new(190, -510), 100); // Brake
+		AddButton(true, "gameplay_lb", "shoulder/shoulder_lb.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(70, -470), 120);
+		AddButton(true, "gameplay_rb", "shoulder/shoulder_rb.png", JoyButton.RightShoulder, Corner.BottomLeft, new(310, -470), 120);
+		AddButton(true, "gameplay_ls", "button/button_ls.png", JoyButton.LeftStick, Corner.BottomLeft, new(190, -510), 100);
 
-		AddButton(true, "gameplay_start", "button/button_menu.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100); // Pause
+		AddButton(true, "gameplay_start", "button/button_menu.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100);
 	}
 
-	/// <summary> D-pad and the buttons menus use (confirm, back, sort, clear, page and start). </summary>
 	private void BuildMenuControls()
 	{
 		const float spacing = 120f;
@@ -167,17 +157,16 @@ public partial class TouchControls : CanvasLayer
 		AddDpad(dpad, JoyButton.DpadLeft, -90, new(-spacing, 0));
 		AddDpad(dpad, JoyButton.DpadRight, 90, new(spacing, 0));
 
-		AddButton(false, "menu_a", "button/button_a.png", JoyButton.A, Corner.BottomRight, new(-200, -110), 170); // Confirm
-		AddButton(false, "menu_b", "button/button_b.png", JoyButton.B, Corner.BottomRight, new(-65, -245), 130); // Back
-		AddButton(false, "menu_x", "button/button_x.png", JoyButton.X, Corner.BottomRight, new(-335, -245), 110); // Sort
-		AddButton(false, "menu_y", "button/button_y.png", JoyButton.Y, Corner.BottomRight, new(-200, -370), 110); // Clear
+		AddButton(false, "menu_a", "button/button_a.png", JoyButton.A, Corner.BottomRight, new(-200, -110), 170);
+		AddButton(false, "menu_b", "button/button_b.png", JoyButton.B, Corner.BottomRight, new(-65, -245), 130);
+		AddButton(false, "menu_x", "button/button_x.png", JoyButton.X, Corner.BottomRight, new(-335, -245), 110);
+		AddButton(false, "menu_y", "button/button_y.png", JoyButton.Y, Corner.BottomRight, new(-200, -370), 110);
 
-		AddButton(false, "menu_lb", "shoulder/shoulder_lb.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(60, -450), 110); // Previous page
-		AddButton(false, "menu_rb", "shoulder/shoulder_rb.png", JoyButton.RightShoulder, Corner.BottomLeft, new(320, -450), 110); // Next page
+		AddButton(false, "menu_lb", "shoulder/shoulder_lb.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(60, -450), 110);
+		AddButton(false, "menu_rb", "shoulder/shoulder_rb.png", JoyButton.RightShoulder, Corner.BottomLeft, new(320, -450), 110);
 
-		AddButton(false, "menu_start", "button/button_menu.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100); // Start
+		AddButton(false, "menu_start", "button/button_menu.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100);
 
-		// Opens the touch controls editor
 		LayoutItem gearItem = CreateItem("menu_edit", false, Corner.TopRight, new(-175, 55), 50);
 		TouchButton gear = CreateButton(gearItem, false, TexturePath + "touch_gear.png", Vector2.Zero, 100);
 		gear.OnPressed = () => SetEditing(true);
@@ -256,7 +245,7 @@ public partial class TouchControls : CanvasLayer
 		float top = Mathf.Max(safeArea.Position.Y, 0) * scale.Y;
 		float right = Mathf.Max(windowSize.X - safeArea.End.X, 0) * scale.X;
 		float bottom = Mathf.Max(windowSize.Y - safeArea.End.Y, 0) * scale.Y;
-		if (safeArea.Size.X <= 0 || safeArea.Size.Y <= 0) // Safe area not reported
+		if (safeArea.Size.X <= 0 || safeArea.Size.Y <= 0)
 			left = top = right = bottom = 0;
 
 		safeRect = new Rect2(left + EdgePadding, top + EdgePadding,
@@ -271,7 +260,6 @@ public partial class TouchControls : CanvasLayer
 		_ => safeRect.End,
 	};
 
-	/// <summary> Places every control relative to the safe area (or where the player moved it). </summary>
 	private void Layout()
 	{
 		ReleaseAll();
@@ -299,7 +287,6 @@ public partial class TouchControls : CanvasLayer
 	#endregion
 
 	#region Mode
-	/// <summary> True while a stage is being played (not paused, not on results or loading). </summary>
 	private bool IsGameplay()
 	{
 		StageSettings stage = StageSettings.Instance;
@@ -353,7 +340,7 @@ public partial class TouchControls : CanvasLayer
 			case InputEventJoypadButton jb when jb.Device != VirtualDevice:
 			case InputEventJoypadMotion jm when jm.Device != VirtualDevice && Mathf.Abs(jm.AxisValue) > 0.5f:
 			case InputEventKey:
-				SetShown(false); // A physical controller/keyboard is being used
+				SetShown(false);
 				break;
 		}
 	}
@@ -361,7 +348,7 @@ public partial class TouchControls : CanvasLayer
 	private static bool HitsButton(TouchButton b, Vector2 position)
 	{
 		Vector2 center = b.Root.Position + b.Root.Size * 0.5f;
-		return center.DistanceTo(position) <= b.Size * 0.5f * b.Item.Scale + 12f; // Circular hit area
+		return center.DistanceTo(position) <= b.Size * 0.5f * b.Item.Scale + 12f;
 	}
 
 	private TouchButton FindButton(Vector2 position, bool dpadOnly = false)
@@ -394,7 +381,6 @@ public partial class TouchControls : CanvasLayer
 			return;
 		}
 
-		// Floating stick: any free touch on the left side of the screen grabs it (gameplay only)
 		if (isGameplayMode && stickTouchIndex == -1 && position.X < GetViewport().GetVisibleRect().Size.X * 0.45f)
 		{
 			stickTouchIndex = index;
@@ -413,7 +399,6 @@ public partial class TouchControls : CanvasLayer
 			return;
 		}
 
-		// Let the finger slide between d-pad arrows
 		if (isGameplayMode)
 			return;
 
@@ -457,7 +442,7 @@ public partial class TouchControls : CanvasLayer
 		if (b.OnPressed != null)
 		{
 			if (!pressed)
-				b.OnPressed(); // Trigger on release, so the same touch doesn't hit the editor
+				b.OnPressed();
 			return;
 		}
 
@@ -527,7 +512,7 @@ public partial class TouchControls : CanvasLayer
 				b.Frame.Texture = frameTexture;
 				b.Root.Modulate = Colors.White;
 				b.Root.Scale = Vector2.One * b.Item.Scale;
-				if (b.OnPressed == null) // Don't open the editor because of a forced release
+				if (b.OnPressed == null)
 					SetButtonState(b, false);
 			}
 		}
@@ -565,6 +550,11 @@ public partial class TouchControls : CanvasLayer
 	private HSlider sizeSlider;
 	private Label sizeLabel;
 	private bool isUpdatingSliders;
+	private Button graphicsTabButton;
+	private VBoxContainer layoutSection;
+	private VBoxContainer graphicsSection;
+	private bool isGraphicsTab;
+	private readonly List<Action> graphicsRefreshers = [];
 
 	private static readonly Color Gold = new(0.85f, 0.64f, 0.25f);
 	private static readonly Color DarkBrown = new(0.2f, 0.12f, 0.05f, 0.94f);
@@ -634,19 +624,25 @@ public partial class TouchControls : CanvasLayer
 		tabs.AddThemeConstantOverride("separation", 14);
 		gameplayTabButton = MakeEditorButton("Gameplay", () => SwitchEditorLayout(true));
 		menuTabButton = MakeEditorButton("Menus", () => SwitchEditorLayout(false));
+		graphicsTabButton = MakeEditorButton("Graphics", () => SwitchEditorTab(true));
 		tabs.AddChild(gameplayTabButton);
 		tabs.AddChild(menuTabButton);
+		tabs.AddChild(graphicsTabButton);
 		tabs.AddChild(MakeEditorButton("Reset", ResetLayout));
 		tabs.AddChild(MakeEditorButton("Done", () => SetEditing(false)));
 		column.AddChild(tabs);
 
-		column.AddChild(MakeSliderRow("Opacity", 0.2, 1.0, out _, out opacitySlider, value =>
+		layoutSection = new VBoxContainer();
+		layoutSection.AddThemeConstantOverride("separation", 14);
+		column.AddChild(layoutSection);
+
+		layoutSection.AddChild(MakeSliderRow("Opacity", 0.2, 1.0, out _, out opacitySlider, value =>
 		{
 			opacity = (float)value;
 			root.Modulate = new Color(1, 1, 1, opacity);
 		}));
 
-		column.AddChild(MakeSliderRow("Size", MinItemScale, MaxItemScale, out sizeLabel, out sizeSlider, value =>
+		layoutSection.AddChild(MakeSliderRow("Size", MinItemScale, MaxItemScale, out sizeLabel, out sizeSlider, value =>
 		{
 			if (selectedItem == null)
 				return;
@@ -656,7 +652,121 @@ public partial class TouchControls : CanvasLayer
 			if (selectedItem == stickItem)
 				ResetStick();
 		}));
+
+		BuildGraphicsSection(column);
 	}
+
+	#region Graphics (mobile quick settings)
+	private static readonly string[] QualityNames = ["Off", "Low", "Medium", "High"];
+	private static readonly int[] FpsChoices = [1, 3, 4, 5];
+
+	private void BuildGraphicsSection(VBoxContainer column)
+	{
+		graphicsSection = new VBoxContainer { Visible = false };
+		graphicsSection.AddThemeConstantOverride("separation", 14);
+		column.AddChild(graphicsSection);
+
+		AddCycleRow("FPS limit",
+			() => $"{SaveManager.FrameRates[SaveManager.Config.framerate]}",
+			direction =>
+			{
+				int index = Array.IndexOf(FpsChoices, SaveManager.Config.framerate);
+				index = Mathf.PosMod(Mathf.Max(index, 0) + direction, FpsChoices.Length);
+				SaveManager.Config.framerate = FpsChoices[index];
+			});
+
+		AddCycleRow("Render scale",
+			() => $"{SaveManager.Config.renderScale}%",
+			direction => SaveManager.Config.renderScale = Mathf.Clamp(SaveManager.Config.renderScale + direction * 5, 50, 100));
+
+		AddCycleRow("Shadows",
+			() => QualityNames[(int)SaveManager.Config.softShadowQuality],
+			direction => SaveManager.Config.softShadowQuality = CycleQuality(SaveManager.Config.softShadowQuality, direction));
+
+		AddCycleRow("Reflections",
+			() => QualityNames[(int)SaveManager.Config.reflectionQuality],
+			direction => SaveManager.Config.reflectionQuality = CycleQuality(SaveManager.Config.reflectionQuality, direction));
+
+		AddCycleRow("Bloom",
+			() => QualityNames[(int)SaveManager.Config.bloomMode],
+			direction => SaveManager.Config.bloomMode = CycleQuality(SaveManager.Config.bloomMode, direction));
+
+		AddCycleRow("Anti-aliasing",
+			() => SaveManager.Config.antiAliasing switch { 0 => "Off", 1 => "FXAA", 2 => "MSAA 2x", _ => "MSAA 4x" },
+			direction => SaveManager.Config.antiAliasing = Mathf.PosMod(SaveManager.Config.antiAliasing + direction, 4));
+
+		AddCycleRow("Light shafts",
+			() => SaveManager.Config.useVolumetricLighting ? "On" : "Off",
+			_ => SaveManager.Config.useVolumetricLighting = !SaveManager.Config.useVolumetricLighting);
+
+		AddCycleRow("Motion blur",
+			() => SaveManager.Config.useMotionBlur ? "On" : "Off",
+			_ => SaveManager.Config.useMotionBlur = !SaveManager.Config.useMotionBlur);
+
+		Label note = new() { Text = "Shadows and reflections apply when a stage loads", HorizontalAlignment = HorizontalAlignment.Center };
+		note.AddThemeFontSizeOverride("font_size", 22);
+		note.AddThemeColorOverride("font_color", new Color(1f, 0.92f, 0.7f, 0.7f));
+		graphicsSection.AddChild(note);
+	}
+
+	private static SaveManager.QualitySetting CycleQuality(SaveManager.QualitySetting value, int direction) =>
+		(SaveManager.QualitySetting)Mathf.PosMod((int)value + direction, (int)SaveManager.QualitySetting.Count);
+
+	private void AddCycleRow(string text, Func<string> getValue, Action<int> change)
+	{
+		HBoxContainer row = new();
+		row.AddThemeConstantOverride("separation", 20);
+
+		Label label = new() { Text = text, CustomMinimumSize = new(300, 0), VerticalAlignment = VerticalAlignment.Center };
+		label.AddThemeFontSizeOverride("font_size", 30);
+		label.AddThemeColorOverride("font_color", new Color(1f, 0.92f, 0.7f));
+		row.AddChild(label);
+
+		Label value = new() { CustomMinimumSize = new(220, 0), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+		value.AddThemeFontSizeOverride("font_size", 30);
+		value.AddThemeColorOverride("font_color", Colors.White);
+
+		Button left = MakeEditorButton("<", () => { change(-1); ApplyGraphics(); });
+		Button right = MakeEditorButton(">", () => { change(1); ApplyGraphics(); });
+		left.CustomMinimumSize = right.CustomMinimumSize = new(90, 64);
+		row.AddChild(left);
+		row.AddChild(value);
+		row.AddChild(right);
+		graphicsSection.AddChild(row);
+
+		graphicsRefreshers.Add(() => value.Text = getValue());
+	}
+
+	private void ApplyGraphics()
+	{
+		SaveManager.ApplyConfig();
+		SaveManager.SaveConfig();
+		if (StageSettings.Instance != null && IsInstanceValid(StageSettings.Instance))
+			StageSettings.Instance.UpdateQualitySettings();
+		RefreshGraphics();
+	}
+
+	private void RefreshGraphics()
+	{
+		foreach (Action refresh in graphicsRefreshers)
+			refresh();
+	}
+
+	private void SwitchEditorTab(bool graphics)
+	{
+		isGraphicsTab = graphics;
+		SelectItem(null);
+		layoutSection.Visible = !graphics;
+		graphicsSection.Visible = graphics;
+		graphicsTabButton.Modulate = graphics ? Colors.White : new Color(1, 1, 1, 0.5f);
+		if (graphics)
+		{
+			gameplayTabButton.Modulate = menuTabButton.Modulate = new Color(1, 1, 1, 0.5f);
+			RefreshGraphics();
+		}
+		LayoutEditorPanel();
+	}
+	#endregion
 
 	private void LayoutEditorPanel()
 	{
@@ -674,7 +784,6 @@ public partial class TouchControls : CanvasLayer
 		ReleaseAll();
 		isEditing = editing;
 
-		// The editor uses regular GUI buttons/sliders, which need touches converted to mouse clicks
 		Input.EmulateMouseFromTouch = editing;
 
 		editorBackground.Visible = editing;
@@ -699,6 +808,7 @@ public partial class TouchControls : CanvasLayer
 	private void SwitchEditorLayout(bool gameplay)
 	{
 		isEditingGameplay = gameplay;
+		SwitchEditorTab(false);
 		SelectItem(null);
 		gameplayGroup.Visible = gameplay;
 		menuGroup.Visible = !gameplay;
@@ -709,12 +819,12 @@ public partial class TouchControls : CanvasLayer
 	private void SelectItem(LayoutItem item)
 	{
 		if (selectedItem != null)
-			foreach ((Control part, _) in selectedItem.Parts)
+			foreach (var (part, _) in selectedItem.Parts)
 				part.SelfModulate = Colors.White;
 
 		selectedItem = item;
 		if (selectedItem != null)
-			foreach ((Control part, _) in selectedItem.Parts)
+			foreach (var (part, _) in selectedItem.Parts)
 				part.SelfModulate = SelectedTint;
 
 		isUpdatingSliders = true;
@@ -756,8 +866,8 @@ public partial class TouchControls : CanvasLayer
 					return;
 				}
 
-				if (editorPanel.GetGlobalRect().HasPoint(touch.Position))
-					return; // Let the GUI handle the panel
+				if (isGraphicsTab || editorPanel.GetGlobalRect().HasPoint(touch.Position))
+					return;
 
 				LayoutItem item = FindEditableItem(touch.Position);
 				SelectItem(item);

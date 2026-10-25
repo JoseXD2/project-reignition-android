@@ -1168,7 +1168,6 @@ public partial class Options : Menu
 		return true;
 	}
 
-	/// <summary> Android has no file explorer to open, so show the native file picker on the mods folder instead. </summary>
 	private void OpenModsDialog()
 	{
 		SaveManager.EnsureModDirectories();
@@ -1177,7 +1176,6 @@ public partial class Options : Menu
 			Callable.From<bool, string[], int>(OnModFilesSelected));
 	}
 
-	/// <summary> Copies mods picked from elsewhere (e.g. Downloads) into the mods folder. </summary>
 	private void OnModFilesSelected(bool status, string[] paths, int _)
 	{
 		if (!status)
@@ -1202,7 +1200,7 @@ public partial class Options : Menu
 		}
 
 		if (hasZip)
-			ModManager.Instance.ExtractZipFiles(); // Mods are loaded on the next startup
+			ModManager.Instance.ExtractZipFiles();
 	}
 
 	private bool SlideMouseOption(int direction)

@@ -24,10 +24,8 @@ public partial class SaveManager : Node
 	public static string ModDirectory => HasSharedStorageAccess ? SharedStorageModDirectory : DataDirectory + "mods/";
 
 	public static bool IsAndroid => OS.GetName() == "Android";
-	/// <summary> Android permission needed to read/write mods on shared storage. </summary>
 	public const string AllFilesPermission = "android.permission.MANAGE_EXTERNAL_STORAGE";
 	private static bool? sharedStorageGranted;
-	/// <summary> True on Android when "All files access" was granted, so mods can live on shared storage. </summary>
 	public static bool HasSharedStorageAccess
 	{
 		get
@@ -40,10 +38,8 @@ public partial class SaveManager : Node
 		}
 	}
 	public static void RefreshSharedStorageAccess() => sharedStorageGranted = null;
-	/// <summary> Mods folder on Android shared storage (/storage/emulated/0/ProjectReignition/mods/). </summary>
 	public static string SharedStorageModDirectory => OS.GetSystemDir(OS.SystemDir.Documents).GetBaseDir() + "/ProjectReignition/mods/";
 
-	/// <summary> Creates the mod folder and its subfolders if they don't exist. </summary>
 	public static void EnsureModDirectories()
 	{
 		foreach (string dir in new[] { ModDirectory, MusicModDirectory, LevelsModDirectory, LangModDirectory, CharactersModDirectory, ExtrasModDirectory })
@@ -641,10 +637,6 @@ public partial class SaveManager : Node
 
 	private const string MobileDefaultsMarker = "user://mobile_defaults_applied";
 
-	/// <summary>
-	/// The default video settings target PCs. On mobile, switch to lighter settings once
-	/// (players can still raise them in the options menu afterwards).
-	/// </summary>
 	private static void ApplyMobileDefaults()
 	{
 		if (!OS.HasFeature("mobile") || FileAccess.FileExists(MobileDefaultsMarker))
@@ -652,10 +644,10 @@ public partial class SaveManager : Node
 
 		Config.renderScale = 75;
 		Config.resizeMode = RenderingServer.ViewportScaling3DMode.Bilinear;
-		Config.antiAliasing = 1; // FXAA
+		Config.antiAliasing = 1;
 		Config.softShadowQuality = QualitySetting.Low;
-		Config.reflectionQuality = QualitySetting.Low;
-		Config.postProcessingQuality = QualitySetting.Disabled; // SSAO/SSIL aren't supported by the mobile renderer anyway
+		Config.reflectionQuality = QualitySetting.Disabled;
+		Config.postProcessingQuality = QualitySetting.Disabled;
 		Config.bloomMode = QualitySetting.Low;
 		Config.useVolumetricLighting = false;
 		Config.useMotionBlur = false;
@@ -788,6 +780,9 @@ public partial class SaveManager : Node
 				targetSoftShadowQuality = RenderingServer.ShadowQuality.SoftMedium;
 				break;
 		}
+
+		if (OS.HasFeature("mobile"))
+			targetShadowAtlasSize = Mathf.Min(targetShadowAtlasSize / 2, 2048);
 
 		RenderingServer.DirectionalShadowAtlasSetSize(targetShadowAtlasSize, false);
 		RenderingServer.ViewportSetPositionalShadowAtlasSize(viewportRid, targetShadowAtlasSize, false);

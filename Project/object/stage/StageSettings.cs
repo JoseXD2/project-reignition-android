@@ -219,11 +219,22 @@ public partial class StageSettings : Node3D
 			{
 				dirLight.DirectionalShadowMode = targetDirectionalShadowMode;
 				dirLight.DirectionalShadowBlendSplits = targetBlendSplitMode;
+				if (OS.HasFeature("mobile"))
+				{
+					dirLight.DirectionalShadowMaxDistance *= SaveManager.Config.softShadowQuality >= SaveManager.QualitySetting.Medium ? .75f : .5f;
+					dirLight.ShadowEnabled = SaveManager.Config.softShadowQuality != SaveManager.QualitySetting.Disabled;
+				}
 				return;
 			}
 
 			if (omniLights.TryDequeue(out OmniLight3D omniLight) && omniLight.ShadowEnabled)
 			{
+				if (OS.HasFeature("mobile") && SaveManager.Config.softShadowQuality <= SaveManager.QualitySetting.Low)
+				{
+					omniLight.ShadowEnabled = false;
+					return;
+				}
+
 				omniLight.OmniShadowMode = targetOmniShadowMode;
 				omniLight.DistanceFadeLength = 10;
 				omniLight.DistanceFadeEnabled = true;

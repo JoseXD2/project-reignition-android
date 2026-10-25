@@ -200,7 +200,7 @@ dedicated_server=false
 custom_features=""
 export_filter="all_resources"
 include_filter=""
-exclude_filter=""
+exclude_filter="addons/ffmpeg/win64/*, addons/ffmpeg/linux64/*, addons/ffmpeg/macos/*, *.mp4"
 export_path="../build/android/ProjectReignition.apk"
 encryption_include_filters=""
 encryption_exclude_filters=""
@@ -222,6 +222,7 @@ version/name="1.0.9"
 package/unique_name="org.fanremake.projectreignition"
 package/name="Project Reignition"
 package/signed=true
+splash_screen/icon="res://interface/boot/android_splash_blank.png"
 package/app_category=2
 package/retain_data_on_uninstall=false
 package/exclude_from_recents=false
@@ -242,7 +243,12 @@ permissions/access_network_state=true
 
 # plugin de video (FFmpeg) fica incluido no APK; remove a exclusao de versoes antigas deste script
 $ptxt = [System.IO.File]::ReadAllText($presets).TrimStart([char]0xFEFF)
-$ptxt = $ptxt -replace 'exclude_filter="addons/ffmpeg/\*"', 'exclude_filter=""'
+# Android nao usa o FFmpeg de desktop nem os .mp4 (os videos vao como .ogv)
+$ptxt = $ptxt -replace 'exclude_filter="[^"]*"', 'exclude_filter="addons/ffmpeg/win64/*, addons/ffmpeg/linux64/*, addons/ffmpeg/macos/*, *.mp4"'
+if ($ptxt -notmatch 'splash_screen/icon') {
+    # sem o icone do app no meio da tela ao abrir
+    $ptxt = $ptxt -replace 'package/signed=true', "package/signed=true`nsplash_screen/icon=`"res://interface/boot/android_splash_blank.png`""
+}
 if ($ptxt -notmatch 'manage_external_storage') {
     # pasta de mods em /storage/emulated/0/ProjectReignition/mods precisa de "Acesso a todos os arquivos"
     $ptxt = $ptxt -replace 'permissions/internet=true', "permissions/internet=true`npermissions/manage_external_storage=true"
