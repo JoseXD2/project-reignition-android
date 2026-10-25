@@ -11,11 +11,12 @@ public partial class TouchControls : CanvasLayer
 	public const int VirtualDevice = 7;
 
 	private const string TexturePath = "res://interface/touch/";
-	private const string PromptPath = "res://resource/input sprites/navigation/";
 	private const string SettingsFile = "user://touch_controls.cfg";
 	private const float StickBaseSize = 340f;
 	private const float StickKnobSize = 170f;
 	private const float StickRadius = 115f;
+	private const float StickHorizontalSnap = 0.6f;
+	private const float StickVerticalSnap = 0.35f;
 	private const float EdgePadding = 40f;
 	private const float DefaultOpacity = 0.75f;
 	private const float MinItemScale = 0.5f;
@@ -41,7 +42,10 @@ public partial class TouchControls : CanvasLayer
 	{
 		public LayoutItem Item;
 		public Control Root;
-		public TextureRect Frame;
+		public TextureRect Image;
+		public Texture2D Texture;
+		public Texture2D PressedTexture;
+		public Vector2 HitOffset;
 		public float Size;
 		public JoyButton Button = JoyButton.Invalid;
 		public JoyAxis Trigger = JoyAxis.Invalid;
@@ -70,9 +74,6 @@ public partial class TouchControls : CanvasLayer
 
 	private Rect2 safeRect;
 
-	private Texture2D frameTexture;
-	private Texture2D framePressedTexture;
-
 	public override void _Ready()
 	{
 		if (!DisplayServer.IsTouchscreenAvailable())
@@ -85,9 +86,6 @@ public partial class TouchControls : CanvasLayer
 
 		Layer = 100;
 		ProcessMode = ProcessModeEnum.Always;
-
-		frameTexture = GD.Load<Texture2D>(TexturePath + "touch_button.png");
-		framePressedTexture = GD.Load<Texture2D>(TexturePath + "touch_button_pressed.png");
 
 		root = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
 		root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -120,12 +118,12 @@ public partial class TouchControls : CanvasLayer
 	#region Building
 	private void BuildGameplayControls()
 	{
-		stickBase = MakeRect(GD.Load<Texture2D>(TexturePath + "touch_stick_base.png"));
+		stickBase = MakeRect(GD.Load<Texture2D>(TexturePath + "wii_stick_base.png"));
 		stickBase.Size = new(StickBaseSize, StickBaseSize);
 		stickBase.PivotOffset = stickBase.Size * 0.5f;
 		gameplayGroup.AddChild(stickBase);
 
-		stickKnob = MakeRect(GD.Load<Texture2D>(TexturePath + "touch_stick_knob.png"));
+		stickKnob = MakeRect(GD.Load<Texture2D>(TexturePath + "wii_stick_knob.png"));
 		stickKnob.Size = new(StickKnobSize, StickKnobSize);
 		stickKnob.PivotOffset = stickKnob.Size * 0.5f;
 		gameplayGroup.AddChild(stickKnob);
@@ -133,42 +131,47 @@ public partial class TouchControls : CanvasLayer
 		stickItem = CreateItem("gameplay_stick", true, Corner.BottomLeft, new(StickBaseSize * 0.5f, -StickBaseSize * 0.5f), StickBaseSize * 0.5f);
 		stickItem.Parts.Add((stickBase, Vector2.Zero));
 
-		AddButton(true, "gameplay_a", "button/button_a.png", JoyButton.A, Corner.BottomRight, new(-230, -105), 170);
-		AddButton(true, "gameplay_b", "button/button_b.png", JoyButton.B, Corner.BottomRight, new(-85, -240), 140);
-		AddButton(true, "gameplay_x", "button/button_x.png", JoyButton.X, Corner.BottomRight, new(-375, -240), 140);
-		AddButton(true, "gameplay_y", "button/button_y.png", JoyButton.Y, Corner.BottomRight, new(-230, -375), 140);
+		AddButton(true, "gameplay_a", "wii_2.png", JoyButton.A, Corner.BottomRight, new(-230, -105), 170);
+		AddButton(true, "gameplay_b", "wii_1.png", JoyButton.B, Corner.BottomRight, new(-85, -240), 140);
+		AddButton(true, "gameplay_x", "wii_a.png", JoyButton.X, Corner.BottomRight, new(-375, -240), 140);
+		AddButton(true, "gameplay_y", "wii_b.png", JoyButton.Y, Corner.BottomRight, new(-230, -375), 140);
 
-		AddTrigger("gameplay_rt", "shoulder/shoulder_rt.png", JoyAxis.TriggerRight, Corner.BottomRight, new(-75, -425), 120);
-		AddTrigger("gameplay_lt", "shoulder/shoulder_lt.png", JoyAxis.TriggerLeft, Corner.BottomRight, new(-385, -425), 120);
+		AddTrigger("gameplay_rt", "wii_z.png", JoyAxis.TriggerRight, Corner.BottomRight, new(-75, -425), 120);
+		AddTrigger("gameplay_lt", "wii_c.png", JoyAxis.TriggerLeft, Corner.BottomRight, new(-385, -425), 120);
 
-		AddButton(true, "gameplay_lb", "shoulder/shoulder_lb.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(70, -470), 120);
-		AddButton(true, "gameplay_rb", "shoulder/shoulder_rb.png", JoyButton.RightShoulder, Corner.BottomLeft, new(310, -470), 120);
-		AddButton(true, "gameplay_ls", "button/button_ls.png", JoyButton.LeftStick, Corner.BottomLeft, new(190, -510), 100);
+		AddButton(true, "gameplay_lb", "wii_minus.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(70, -470), 110);
+		AddButton(true, "gameplay_rb", "wii_plus.png", JoyButton.RightShoulder, Corner.BottomLeft, new(310, -470), 110);
+		AddButton(true, "gameplay_ls", "wii_brake.png", JoyButton.LeftStick, Corner.BottomLeft, new(190, -510), 100);
 
-		AddButton(true, "gameplay_start", "button/button_menu.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100);
+		AddButton(true, "gameplay_start", "wii_home.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100);
 	}
 
 	private void BuildMenuControls()
 	{
-		const float spacing = 120f;
-		LayoutItem dpad = CreateItem("menu_dpad", false, Corner.BottomLeft, new(190, -190), spacing + 65f);
-		AddDpad(dpad, JoyButton.DpadUp, 0, new(0, -spacing));
-		AddDpad(dpad, JoyButton.DpadDown, 180, new(0, spacing));
-		AddDpad(dpad, JoyButton.DpadLeft, -90, new(-spacing, 0));
-		AddDpad(dpad, JoyButton.DpadRight, 90, new(spacing, 0));
+		const float dpadSize = 340f;
+		LayoutItem dpad = CreateItem("menu_dpad", false, Corner.BottomLeft, new(dpadSize * 0.5f, -dpadSize * 0.5f), dpadSize * 0.5f);
+		AddDpad(dpad, JoyButton.DpadUp, 0, dpadSize);
+		AddDpad(dpad, JoyButton.DpadRight, 90, dpadSize);
+		AddDpad(dpad, JoyButton.DpadDown, 180, dpadSize);
+		AddDpad(dpad, JoyButton.DpadLeft, 270, dpadSize);
+		TextureRect dpadCenter = MakeRect(GD.Load<Texture2D>(TexturePath + "wii_dpad_center.png"));
+		dpadCenter.Size = new(dpadSize, dpadSize);
+		dpadCenter.PivotOffset = dpadCenter.Size * 0.5f;
+		menuGroup.AddChild(dpadCenter);
+		dpad.Parts.Add((dpadCenter, Vector2.Zero));
 
-		AddButton(false, "menu_a", "button/button_a.png", JoyButton.A, Corner.BottomRight, new(-200, -110), 170);
-		AddButton(false, "menu_b", "button/button_b.png", JoyButton.B, Corner.BottomRight, new(-65, -245), 130);
-		AddButton(false, "menu_x", "button/button_x.png", JoyButton.X, Corner.BottomRight, new(-335, -245), 110);
-		AddButton(false, "menu_y", "button/button_y.png", JoyButton.Y, Corner.BottomRight, new(-200, -370), 110);
+		AddButton(false, "menu_a", "wii_a.png", JoyButton.A, Corner.BottomRight, new(-200, -110), 170);
+		AddButton(false, "menu_b", "wii_b.png", JoyButton.B, Corner.BottomRight, new(-65, -245), 130);
+		AddButton(false, "menu_x", "wii_1.png", JoyButton.X, Corner.BottomRight, new(-335, -245), 110);
+		AddButton(false, "menu_y", "wii_2.png", JoyButton.Y, Corner.BottomRight, new(-200, -370), 110);
 
-		AddButton(false, "menu_lb", "shoulder/shoulder_lb.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(60, -450), 110);
-		AddButton(false, "menu_rb", "shoulder/shoulder_rb.png", JoyButton.RightShoulder, Corner.BottomLeft, new(320, -450), 110);
+		AddButton(false, "menu_lb", "wii_minus.png", JoyButton.LeftShoulder, Corner.BottomLeft, new(60, -450), 100);
+		AddButton(false, "menu_rb", "wii_plus.png", JoyButton.RightShoulder, Corner.BottomLeft, new(320, -450), 100);
 
-		AddButton(false, "menu_start", "button/button_menu.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100);
+		AddButton(false, "menu_start", "wii_home.png", JoyButton.Start, Corner.TopRight, new(-55, 55), 100);
 
 		LayoutItem gearItem = CreateItem("menu_edit", false, Corner.TopRight, new(-175, 55), 50);
-		TouchButton gear = CreateButton(gearItem, false, TexturePath + "touch_gear.png", Vector2.Zero, 100);
+		TouchButton gear = CreateButton(gearItem, false, "wii_gear.png", Vector2.Zero, 100);
 		gear.OnPressed = () => SetEditing(true);
 	}
 
@@ -179,9 +182,11 @@ public partial class TouchControls : CanvasLayer
 		return item;
 	}
 
-	private void AddDpad(LayoutItem dpad, JoyButton button, float rotationDegrees, Vector2 offset)
+	private void AddDpad(LayoutItem dpad, JoyButton button, float rotationDegrees, float size)
 	{
-		TouchButton b = CreateButton(dpad, false, TexturePath + "touch_arrow.png", offset, 130, rotationDegrees);
+		TouchButton b = CreateButton(dpad, false, "wii_dpad_arm.png", Vector2.Zero, size, rotationDegrees);
+		b.PressedTexture = GD.Load<Texture2D>(TexturePath + "wii_dpad_arm_pressed.png");
+		b.HitOffset = new Vector2(0, -size * 0.3f).Rotated(Mathf.DegToRad(rotationDegrees));
 		b.Button = button;
 		b.IsDpad = true;
 	}
@@ -189,13 +194,13 @@ public partial class TouchControls : CanvasLayer
 	private void AddButton(bool isGameplay, string id, string prompt, JoyButton button, Corner corner, Vector2 offset, float size)
 	{
 		LayoutItem item = CreateItem(id, isGameplay, corner, offset, size * 0.5f);
-		CreateButton(item, isGameplay, PromptPath + prompt, Vector2.Zero, size).Button = button;
+		CreateButton(item, isGameplay, prompt, Vector2.Zero, size).Button = button;
 	}
 
 	private void AddTrigger(string id, string prompt, JoyAxis axis, Corner corner, Vector2 offset, float size)
 	{
 		LayoutItem item = CreateItem(id, true, corner, offset, size * 0.5f);
-		CreateButton(item, true, PromptPath + prompt, Vector2.Zero, size).Trigger = axis;
+		CreateButton(item, true, prompt, Vector2.Zero, size).Trigger = axis;
 	}
 
 	private static TextureRect MakeRect(Texture2D texture) => new()
@@ -206,25 +211,18 @@ public partial class TouchControls : CanvasLayer
 		MouseFilter = Control.MouseFilterEnum.Ignore,
 	};
 
-	private TouchButton CreateButton(LayoutItem item, bool isGameplay, string iconPath, Vector2 partOffset, float size, float iconRotation = 0)
+	private TouchButton CreateButton(LayoutItem item, bool isGameplay, string textureName, Vector2 partOffset, float size, float rotation = 0)
 	{
-		Control control = new() { MouseFilter = Control.MouseFilterEnum.Ignore, Size = new(size, size), PivotOffset = new(size * 0.5f, size * 0.5f) };
+		Control control = new() { MouseFilter = Control.MouseFilterEnum.Ignore, Size = new(size, size), PivotOffset = new(size * 0.5f, size * 0.5f), RotationDegrees = rotation };
 		(isGameplay ? gameplayGroup : menuGroup).AddChild(control);
 
-		TextureRect frame = MakeRect(frameTexture);
-		frame.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		control.AddChild(frame);
-
-		const float inset = 0.22f;
-		TextureRect icon = MakeRect(GD.Load<Texture2D>(iconPath));
-		icon.Position = new(size * inset, size * inset);
-		icon.Size = new(size * (1 - 2 * inset), size * (1 - 2 * inset));
-		icon.PivotOffset = icon.Size * 0.5f;
-		icon.RotationDegrees = iconRotation;
-		control.AddChild(icon);
+		Texture2D texture = GD.Load<Texture2D>(TexturePath + textureName);
+		TextureRect image = MakeRect(texture);
+		image.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		control.AddChild(image);
 
 		item.Parts.Add((control, partOffset));
-		TouchButton b = new() { Item = item, Root = control, Frame = frame, Size = size };
+		TouchButton b = new() { Item = item, Root = control, Image = image, Texture = texture, Size = size };
 		(isGameplay ? gameplayButtons : menuButtons).Add(b);
 		return b;
 	}
@@ -347,8 +345,9 @@ public partial class TouchControls : CanvasLayer
 
 	private static bool HitsButton(TouchButton b, Vector2 position)
 	{
-		Vector2 center = b.Root.Position + b.Root.Size * 0.5f;
-		return center.DistanceTo(position) <= b.Size * 0.5f * b.Item.Scale + 12f;
+		Vector2 center = b.Root.Position + b.Root.Size * 0.5f + b.HitOffset * b.Item.Scale;
+		float radius = (b.IsDpad ? b.Size * 0.2f : b.Size * 0.5f) * b.Item.Scale + 12f;
+		return center.DistanceTo(position) <= radius;
 	}
 
 	private TouchButton FindButton(Vector2 position, bool dpadOnly = false)
@@ -435,9 +434,9 @@ public partial class TouchControls : CanvasLayer
 	#region Output
 	private void SetButtonState(TouchButton b, bool pressed)
 	{
-		b.Frame.Texture = pressed ? framePressedTexture : frameTexture;
-		b.Root.Modulate = pressed ? new Color(1, 1, 1, 1f / Mathf.Max(opacity, 0.01f)) : Colors.White;
-		b.Root.Scale = Vector2.One * b.Item.Scale * (pressed ? 0.92f : 1f);
+		b.Image.Texture = pressed && b.PressedTexture != null ? b.PressedTexture : b.Texture;
+		b.Root.Modulate = pressed ? new Color(0.82f, 0.82f, 0.82f, 1f / Mathf.Max(opacity, 0.01f)) : Colors.White;
+		b.Root.Scale = Vector2.One * b.Item.Scale * (pressed && !b.IsDpad ? 0.92f : 1f);
 
 		if (b.OnPressed != null)
 		{
@@ -468,6 +467,11 @@ public partial class TouchControls : CanvasLayer
 		stickKnob.Position = stickCenter + offset - stickKnob.Size * 0.5f;
 
 		Vector2 value = offset / radius;
+		if (Mathf.Abs(value.Y) < Mathf.Abs(value.X) * StickHorizontalSnap)
+			value.Y = 0f;
+		else if (Mathf.Abs(value.X) < Mathf.Abs(value.Y) * StickVerticalSnap)
+			value.X = 0f;
+
 		if (value.IsEqualApprox(lastStickValue))
 			return;
 
@@ -509,7 +513,7 @@ public partial class TouchControls : CanvasLayer
 					continue;
 
 				b.TouchIndex = -1;
-				b.Frame.Texture = frameTexture;
+				b.Image.Texture = b.Texture;
 				b.Root.Modulate = Colors.White;
 				b.Root.Scale = Vector2.One * b.Item.Scale;
 				if (b.OnPressed == null)
